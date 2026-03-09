@@ -100,6 +100,27 @@ def test_transform_preserves_score_fields():
     assert result["upgradeAllowed"] is True
 
 
+def test_transform_null_language():
+    """arr API may return language as null — should default to 'Any'."""
+    profile = {**SAMPLE_PROFILE, "language": None}
+    result = transform_profile(profile)
+    assert result["language"] == "Any"
+
+
+def test_transform_null_format_items():
+    """arr API may return formatItems as null instead of []."""
+    profile = {**SAMPLE_PROFILE, "formatItems": None}
+    result = transform_profile(profile)
+    assert result["formatItems"] == {}
+
+
+def test_transform_cutoff_not_found():
+    """If cutoff ID not found in items, falls back to string of the int."""
+    profile = {**SAMPLE_PROFILE, "cutoff": 9999}
+    result = transform_profile(profile)
+    assert result["cutoff"] == "9999"
+
+
 def test_save_profile_creates_file(tmp_path):
     result = transform_profile(SAMPLE_PROFILE)
     save_profile(result, str(tmp_path))

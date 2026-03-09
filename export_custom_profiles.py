@@ -69,9 +69,9 @@ def transform_profile(profile: dict) -> dict:
         "minFormatScore": profile.get("minFormatScore", 0),
         "cutoffFormatScore": profile.get("cutoffFormatScore", 0),
         "minUpgradeFormatScore": profile.get("minUpgradeFormatScore", 1),
-        "language": profile["language"]["name"] if isinstance(profile["language"], dict) else profile["language"],
+        "language": profile["language"]["name"] if isinstance(profile.get("language"), dict) else (profile.get("language") or "Any"),
         "items": [_transform_item(i) for i in items],
-        "formatItems": {fi["name"]: fi["score"] for fi in profile.get("formatItems", [])},
+        "formatItems": {fi["name"]: fi["score"] for fi in profile.get("formatItems") or []},
     }
 
 
@@ -132,12 +132,20 @@ def main():
             logging.info(f"  Cleared existing output dir: {output_dir}/")
 
         saved = []
+        errors = []
         for profile in raw_profiles:
-            transformed = transform_profile(profile)
-            if not dry_run:
-                save_profile(transformed, output_dir)
-            saved.append(transformed["name"])
+            try:
+                transformed = transform_profile(profile)
+                if not dry_run:
+                    save_profile(transformed, output_dir)
+                saved.append(transformed["name"])
+            except Exception as e:
+                profile_name = profile.get("name", "<unknown>")
+                logging.error(f"  ERROR transforming profile '{profile_name}': {e}")
+                errors.append(profile_name)
 
+        if errors:
+            logging.error(f"  [{name}] Failed to transform {len(errors)} profiles: {', '.join(errors)}")
         logging.info(f"\n  [{name}] Saved {len(saved)} profiles → {output_dir}/")
         for n in sorted(saved):
             logging.info(f"    + {n}")
