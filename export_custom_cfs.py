@@ -14,6 +14,7 @@ import os
 import re
 import requests
 import yaml
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
 # ── Config ────────────────────────────────────────────────────────────────────
@@ -39,48 +40,34 @@ def setup_logging() -> str:
     )
     return log_file
 
-def extract_trash_ids(yml_path: str) -> dict[str, list[str]]:
-    """Parse recyclarr.yml and return {arr_type: [trash_id, ...]}"""
+
+def extract_trash_names(yml_path: str) -> dict[str, set[str]]:
+    """
+    Parse recyclarr.yml and extract CF names from inline comments.
+    Format: '- abc123def # CF Name Here'
+    Returns {arr_type: {cf_name_lower, ...}}
+    """
+    names = {"sonarr": set(), "radarr": set()}
+
     with open(yml_path, "r") as f:
-        config = yaml.safe_load(f)
+        raw = f.read()
 
-    ids = {"sonarr": [], "radarr": []}
-
+    # Find each arr section and extract commented names
     for arr_type in ("sonarr", "radarr"):
-        section = config.get(arr_type, {})
-        for instance in section.values():
-            for cf_block in instance.get("custom_formats", []):
-                for tid in cf_block.get("trash_ids", []):
-                    # Strip inline comments (e.g. "abc123 # Name")
-                    clean = tid.split("#")[0].strip()
-                    if clean:
-                        ids[arr_type].append(clean)
+        # Find the section block
+        pattern = rf"^{arr_type}:\s*$(.*?)(?=^\w|\Z)"
+        match = re.search(pattern, raw, re.MULTILINE | re.DOTALL)
+        if not match:
+            continue
+        block = match.group(1)
 
-    return ids
-
-
-def fetch_trash_guide_names(trash_ids: list[str], arr_type: str) -> set[str]:
-    """Fetch CF names from Trash Guides repo for the given trash_ids."""
-    names = set()
-    total = len(trash_ids)
-    print(f"  Fetching {total} Trash Guide CF names for {arr_type}...")
-
-    for i, tid in enumerate(trash_ids, 1):
-        url = f"{TRASH_GUIDES_BASE}/{arr_type}/cf/{tid}.json"
-        try:
-            r = requests.get(url, timeout=10)
-            if r.status_code == 200:
-                data = r.json()
-                name = data.get("name", "").strip().lower()
+        # Extract all trash_id lines with comments: '- <hash> # <name>'
+        for line in block.splitlines():
+            m = re.match(r'\s*-\s+[a-f0-9]{32}\s+#\s+(.+)', line)
+            if m:
+                name = m.group(1).strip().lower()
                 if name:
-                    names.add(name)
-            else:
-                logging.warning(f"  [WARN] {tid}: HTTP {r.status_code}")
-        except Exception as e:
-            logging.warning(f"  [WARN] {tid}: {e}")
-
-        if i % 10 == 0:
-            logging.info(f"    {i}/{total}...")
+                    names[arr_type].add(name)
 
     return names
 
@@ -99,7 +86,6 @@ def fetch_arr_cfs(base_url: str, api_key: str, arr_name: str) -> list[dict]:
 def save_cf(cf: dict, output_dir: str):
     """Save a single CF as a JSON file."""
     os.makedirs(output_dir, exist_ok=True)
-    # Sanitise filename
     safe_name = re.sub(r'[<>:"/\\|?*]', '_', cf["name"])
     path = os.path.join(output_dir, f"{safe_name}.json")
     with open(path, "w", encoding="utf-8") as f:
@@ -124,36 +110,38 @@ def main():
     instances = config["instances"]
 
     # Stage 1: Parse recyclarr.yml
-    logging.info("Stage 1/3: Reading recyclarr.yml...")
+    t1 = datetime.now()
+    logging.info("\nStage 1/3: Reading recyclarr.yml...")
     if not os.path.exists(RECYCLARR_YML):
         logging.error(f"ERROR: {RECYCLARR_YML} not found. Put it in the same folder as this script.")
         input("\nPress Enter to exit...")
         return
-    trash_ids_by_type = extract_trash_ids(RECYCLARR_YML)
-    for arr_type, ids in trash_ids_by_type.items():
-        logging.info(f"  {arr_type}: {len(ids)} Trash Guide IDs found")
+    trash_names_by_type = extract_trash_names(RECYCLARR_YML)
+    for arr_type, names in trash_names_by_type.items():
+        logging.info(f"  {arr_type}: {len(names)} Trash Guide CF names found")
+    logging.info(f"  Stage 1 done in {(datetime.now() - t1).seconds}s")
 
-    # Stage 2: Fetch Trash Guide CF names
-    logging.info("Stage 2/3: Fetching Trash Guide CF names from GitHub...")
-    trash_names_by_type = {}
-    for arr_type, ids in trash_ids_by_type.items():
-        trash_names_by_type[arr_type] = fetch_trash_guide_names(ids, arr_type)
-        logging.info(f"  {arr_type}: resolved {len(trash_names_by_type[arr_type])} names")
-
-    # Stage 3: Export and filter CFs
-    logging.info("Stage 3/3: Exporting CFs from arr instances...")
+    # Stage 2: Export and filter CFs from each instance
+    t2 = datetime.now()
+    logging.info("\nStage 2/3: Exporting CFs from arr instances...")
+    all_results = {}
     for instance in instances:
         name = instance["name"]
         arr_type = instance["arr_type"]
-        output_dir = instance["output_dir"]
-        trash_names = trash_names_by_type.get(arr_type, set())
-
-        logging.info(f"\n  [{name}]")
+        logging.info(f"  [{name}]")
         try:
-            all_cfs = fetch_arr_cfs(instance["base_url"], instance["api_key"], name)
+            all_results[name] = (instance, fetch_arr_cfs(instance["base_url"], instance["api_key"], name))
         except Exception as e:
             logging.error(f"  ERROR connecting to {name}: {e}")
-            continue
+    logging.info(f"  Stage 2 done in {(datetime.now() - t2).seconds}s")
+
+    # Stage 3: Filter and save
+    t3 = datetime.now()
+    logging.info("\nStage 3/3: Filtering and saving custom CFs...")
+    for name, (instance, all_cfs) in all_results.items():
+        arr_type = instance["arr_type"]
+        output_dir = instance["output_dir"]
+        trash_names = trash_names_by_type.get(arr_type, set())
 
         saved = []
         skipped = []
@@ -166,8 +154,8 @@ def main():
                 save_cf(cf, output_dir)
                 saved.append(cf["name"])
 
-        logging.info(f"  Saved {len(saved)} custom CFs → {output_dir}/")
-        logging.info(f"  Skipped {len(skipped)} Trash Guide CFs")
+        logging.info(f"\n  [{name}] Saved {len(saved)} custom CFs → {output_dir}/")
+        logging.info(f"  [{name}] Skipped {len(skipped)} Trash Guide CFs")
 
         if skipped:
             logging.info("  Skipped (Trash Guide):")
@@ -178,6 +166,8 @@ def main():
             logging.info("  Saved (custom):")
             for n in sorted(saved):
                 logging.info(f"    + {n}")
+
+    logging.info(f"  Stage 3 done in {(datetime.now() - t3).seconds}s")
 
     elapsed = (datetime.now() - start).seconds
     logging.info(f"\n=== Done in {elapsed}s. Copy custom-cfs/ into your configarr setup. Log: {log_file} ===")
