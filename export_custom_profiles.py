@@ -146,7 +146,7 @@ def main():
 
         if errors:
             logging.error(f"  [{name}] Failed to transform {len(errors)} profiles: {', '.join(errors)}")
-        logging.info(f"\n  [{name}] Saved {len(saved)} profiles → {output_dir}/")
+        logging.info(f"\n  [{name}] Saved {len(saved)} profiles -> {output_dir}/")
         for n in sorted(saved):
             logging.info(f"    + {n}")
 

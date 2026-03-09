@@ -173,7 +173,7 @@ def main():
                 else:
                     saved.append(cf["name"])
 
-        logging.info(f"\n  [{name}] Saved {len(saved)} custom CFs → {output_dir}/")
+        logging.info(f"\n  [{name}] Saved {len(saved)} custom CFs -> {output_dir}/")
         if force_saved:
             logging.info(f"  [{name}] Force-included {len(force_saved)} (matched Trash Guide name but kept):")
             for n in sorted(force_saved):
