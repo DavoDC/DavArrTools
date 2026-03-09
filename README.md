@@ -16,6 +16,8 @@ Reads your `recyclarr.yml` to identify which CFs are managed by Trash Guides, th
 pip install -r requirements.txt
 ```
 
+> **Note:** If you forget, the script will auto-install missing packages on first run.
+
 ### Setup
 
 1. Copy `recyclarr.yml` into the same folder as the script

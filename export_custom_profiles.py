@@ -19,7 +19,7 @@ import os
 import re
 import shutil
 from datetime import datetime
-from utils import setup_logging, fetch_arr_data
+from utils import ensure_requirements, setup_logging, fetch_arr_data
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
@@ -87,6 +87,7 @@ def save_profile(profile: dict, output_dir: str):
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
+    ensure_requirements()
     log_file = setup_logging("export_profiles")
     start = datetime.now()
     logging.info("=== export-custom-profiles started ===")
