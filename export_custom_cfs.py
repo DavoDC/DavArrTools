@@ -23,8 +23,9 @@ CONFIG_PATH = "config.json"
 RECYCLARR_YML = "recyclarr.yml"
 LOG_DIR = "logs"
 
-# Fields returned by the arr API that configarr doesn't need
-STRIP_FIELDS = {"id"}
+# Only these fields are needed by configarr — everything else from the arr API is dropped
+KEEP_FIELDS = {"name", "includeCustomFormatWhenRenaming", "specifications"}
+KEEP_SPEC_FIELDS = {"name", "implementation", "negate", "required", "fields"}
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -81,10 +82,25 @@ def fetch_arr_cfs(base_url: str, api_key: str, arr_name: str) -> list[dict]:
     return cfs
 
 
+def _clean_spec(spec: dict) -> dict:
+    """Strip arr-internal fields from a specification, keeping only what configarr needs."""
+    out = {k: v for k, v in spec.items() if k in KEEP_SPEC_FIELDS}
+    # arr returns 'fields' as a list [{name, order, value, ...}]; configarr wants {value: ...}
+    if "fields" in out:
+        raw = out["fields"]
+        if isinstance(raw, list):
+            out["fields"] = {"value": raw[0]["value"]} if raw else {}
+        elif isinstance(raw, dict) and "value" in raw:
+            out["fields"] = {"value": raw["value"]}
+    return out
+
+
 def save_cf(cf: dict, output_dir: str):
     """Save a CF as a JSON file, stripping arr-internal fields."""
     os.makedirs(output_dir, exist_ok=True)
-    clean = {k: v for k, v in cf.items() if k not in STRIP_FIELDS}
+    clean = {k: v for k, v in cf.items() if k in KEEP_FIELDS}
+    if "specifications" in clean:
+        clean["specifications"] = [_clean_spec(s) for s in clean["specifications"]]
     safe_name = re.sub(r'[<>:"/\\|?*]', '_', cf["name"])
     path = os.path.join(output_dir, f"{safe_name}.json")
     with open(path, "w", encoding="utf-8") as f:

@@ -91,16 +91,34 @@ def test_save_cf_sanitises_filename(tmp_path):
     assert '/' not in files[0].name
 
 def test_save_cf_content(tmp_path):
-    cf = {"name": "TestCF", "id": 42, "specifications": [{"name": "spec1"}]}
+    cf = {
+        "name": "TestCF", "id": 42,
+        "specifications": [{
+            "name": "spec1", "implementation": "ReleaseTitleSpecification",
+            "implementationName": "Release Title", "id": 99,
+            "negate": False, "required": True,
+            "fields": [{"name": "value", "order": 0, "label": "RegEx", "value": "\\bfoo\\b"}]
+        }]
+    }
     save_cf(cf, str(tmp_path))
     with open(tmp_path / "TestCF.json") as f:
         data = json.load(f)
     assert data["name"] == "TestCF"
-    assert data["specifications"] == [{"name": "spec1"}]
+    spec = data["specifications"][0]
+    assert set(spec.keys()) == {"name", "implementation", "negate", "required", "fields"}
+    assert "implementationName" not in spec
+    assert "id" not in spec
+    assert spec["fields"] == {"value": "\\bfoo\\b"}
 
-def test_save_cf_strips_id(tmp_path):
-    cf = {"name": "TestCF", "id": 42}
+def test_save_cf_strips_unwanted_fields(tmp_path):
+    cf = {"name": "TestCF", "id": 42, "label": "x", "helpText": "y", "infoLink": "z",
+          "includeCustomFormatWhenRenaming": True, "specifications": []}
     save_cf(cf, str(tmp_path))
     with open(tmp_path / "TestCF.json") as f:
         data = json.load(f)
+    # Only allowlisted fields should survive
+    assert set(data.keys()) == {"name", "includeCustomFormatWhenRenaming", "specifications"}
     assert "id" not in data
+    assert "label" not in data
+    assert "helpText" not in data
+    assert "infoLink" not in data
