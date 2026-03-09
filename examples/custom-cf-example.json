@@ -1,28 +1,15 @@
 {
-  "id": 790,
   "name": "AnimeHEVC1",
   "includeCustomFormatWhenRenaming": false,
   "specifications": [
     {
       "name": "AnimeHEVC1",
       "implementation": "ReleaseTitleSpecification",
-      "implementationName": "Release Title",
-      "infoLink": "https://wiki.servarr.com/sonarr/settings#custom-formats-2",
       "negate": false,
       "required": false,
-      "fields": [
-        {
-          "order": 0,
-          "name": "value",
-          "label": "Regular Expression",
-          "helpText": "Custom Format RegEx is Case Insensitive",
-          "value": "(?i)(?:^|[ .\\-\\(\\)\\[\\]_])(DKB)\\b",
-          "type": "textbox",
-          "advanced": false,
-          "privacy": "normal",
-          "isFloat": false
-        }
-      ]
+      "fields": {
+        "value": "(?i)(?:^|[ .\\-\\(\\)\\[\\]_])(DKB)\\b"
+      }
     }
   ]
 }
