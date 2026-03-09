@@ -5,3 +5,6 @@ custom-profiles/
 logs/
 __pycache__/
 *.pyc
+# Exclude any real exported profiles that end up in examples/
+examples/export_*.json
+examples/example-profile_*.json
