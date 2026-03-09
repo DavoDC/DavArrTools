@@ -1,4 +1,5 @@
 config.json
 custom-cfs/
+logs/
 __pycache__/
 *.pyc

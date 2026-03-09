@@ -9,19 +9,35 @@ Usage: python export-custom-cfs.py
 """
 
 import json
+import logging
 import os
 import re
 import requests
 import yaml
+from datetime import datetime
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
 CONFIG_PATH = "config.json"
 RECYCLARR_YML = "recyclarr.yml"
+LOG_DIR = "logs"
 
 TRASH_GUIDES_BASE = "https://raw.githubusercontent.com/TRaSH-Guides/Guides/master/docs/json"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
+def setup_logging() -> str:
+    os.makedirs(LOG_DIR, exist_ok=True)
+    log_file = os.path.join(LOG_DIR, f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(message)s",
+        handlers=[
+            logging.FileHandler(log_file),
+            logging.StreamHandler(),
+        ]
+    )
+    return log_file
 
 def extract_trash_ids(yml_path: str) -> dict[str, list[str]]:
     """Parse recyclarr.yml and return {arr_type: [trash_id, ...]}"""
@@ -59,12 +75,12 @@ def fetch_trash_guide_names(trash_ids: list[str], arr_type: str) -> set[str]:
                 if name:
                     names.add(name)
             else:
-                print(f"    [WARN] {tid}: HTTP {r.status_code}")
+                logging.warning(f"  [WARN] {tid}: HTTP {r.status_code}")
         except Exception as e:
-            print(f"    [WARN] {tid}: {e}")
+            logging.warning(f"  [WARN] {tid}: {e}")
 
         if i % 10 == 0:
-            print(f"    {i}/{total}...")
+            logging.info(f"    {i}/{total}...")
 
     return names
 
@@ -76,7 +92,7 @@ def fetch_arr_cfs(base_url: str, api_key: str, arr_name: str) -> list[dict]:
     r = requests.get(url, headers=headers, timeout=10)
     r.raise_for_status()
     cfs = r.json()
-    print(f"  Exported {len(cfs)} CFs from {arr_name}")
+    logging.info(f"  Exported {len(cfs)} CFs from {arr_name}")
     return cfs
 
 
@@ -93,12 +109,14 @@ def save_cf(cf: dict, output_dir: str):
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
-    print("\n=== export-custom-cfs ===\n")
+    log_file = setup_logging()
+    start = datetime.now()
+    logging.info("=== export-custom-cfs started ===")
+    logging.info(f"Log: {log_file}")
 
     # Load config
     if not os.path.exists(CONFIG_PATH):
-        print(f"ERROR: {CONFIG_PATH} not found.")
-        print(f"Copy config.example.json to config.json and fill in your details.")
+        logging.error(f"ERROR: {CONFIG_PATH} not found. Copy config.example.json to config.json and fill in your details.")
         input("\nPress Enter to exit...")
         return
     with open(CONFIG_PATH, "r") as f:
@@ -106,35 +124,35 @@ def main():
     instances = config["instances"]
 
     # Stage 1: Parse recyclarr.yml
-    print("Stage 1/3: Reading recyclarr.yml...")
+    logging.info("Stage 1/3: Reading recyclarr.yml...")
     if not os.path.exists(RECYCLARR_YML):
-        print(f"ERROR: {RECYCLARR_YML} not found. Put it in the same folder as this script.")
+        logging.error(f"ERROR: {RECYCLARR_YML} not found. Put it in the same folder as this script.")
         input("\nPress Enter to exit...")
         return
     trash_ids_by_type = extract_trash_ids(RECYCLARR_YML)
     for arr_type, ids in trash_ids_by_type.items():
-        print(f"  {arr_type}: {len(ids)} Trash Guide IDs found")
+        logging.info(f"  {arr_type}: {len(ids)} Trash Guide IDs found")
 
     # Stage 2: Fetch Trash Guide CF names
-    print("\nStage 2/3: Fetching Trash Guide CF names from GitHub...")
+    logging.info("Stage 2/3: Fetching Trash Guide CF names from GitHub...")
     trash_names_by_type = {}
     for arr_type, ids in trash_ids_by_type.items():
         trash_names_by_type[arr_type] = fetch_trash_guide_names(ids, arr_type)
-        print(f"  {arr_type}: resolved {len(trash_names_by_type[arr_type])} names")
+        logging.info(f"  {arr_type}: resolved {len(trash_names_by_type[arr_type])} names")
 
     # Stage 3: Export and filter CFs
-    print("\nStage 3/3: Exporting CFs from arr instances...")
+    logging.info("Stage 3/3: Exporting CFs from arr instances...")
     for instance in instances:
         name = instance["name"]
         arr_type = instance["arr_type"]
         output_dir = instance["output_dir"]
         trash_names = trash_names_by_type.get(arr_type, set())
 
-        print(f"\n  [{name}]")
+        logging.info(f"\n  [{name}]")
         try:
             all_cfs = fetch_arr_cfs(instance["base_url"], instance["api_key"], name)
         except Exception as e:
-            print(f"  ERROR connecting to {name}: {e}")
+            logging.error(f"  ERROR connecting to {name}: {e}")
             continue
 
         saved = []
@@ -148,21 +166,21 @@ def main():
                 save_cf(cf, output_dir)
                 saved.append(cf["name"])
 
-        print(f"  Saved {len(saved)} custom CFs → {output_dir}/")
-        print(f"  Skipped {len(skipped)} Trash Guide CFs")
+        logging.info(f"  Saved {len(saved)} custom CFs → {output_dir}/")
+        logging.info(f"  Skipped {len(skipped)} Trash Guide CFs")
 
         if skipped:
-            print("\n  Skipped (Trash Guide):")
+            logging.info("  Skipped (Trash Guide):")
             for n in sorted(skipped):
-                print(f"    - {n}")
+                logging.info(f"    - {n}")
 
         if saved:
-            print("\n  Saved (custom):")
+            logging.info("  Saved (custom):")
             for n in sorted(saved):
-                print(f"    + {n}")
+                logging.info(f"    + {n}")
 
-    print("\n=== Done ===")
-    print("Copy the custom-cfs/ folder into your configarr setup.")
+    elapsed = (datetime.now() - start).seconds
+    logging.info(f"\n=== Done in {elapsed}s. Copy custom-cfs/ into your configarr setup. Log: {log_file} ===")
     input("\nPress Enter to exit...")
 
 
