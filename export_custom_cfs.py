@@ -14,7 +14,6 @@ import os
 import re
 import requests
 import shutil
-import yaml
 from datetime import datetime
 
 # ── Config ────────────────────────────────────────────────────────────────────

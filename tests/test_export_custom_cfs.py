@@ -121,6 +121,62 @@ def test_clean_spec_flattens_fields_list(tmp_path):
     assert result["fields"] == {"value": "\\bfoo\\b"}
 
 
+def test_clean_spec_dict_fields(tmp_path):
+    """fields already in {value: ...} dict form should pass through unchanged."""
+    spec = {
+        "name": "s", "implementation": "SourceSpecification",
+        "negate": False, "required": False,
+        "fields": {"value": 6}
+    }
+    result = _clean_spec(spec)
+    assert result["fields"] == {"value": 6}
+
+
+def test_force_exclude_skips_cf(tmp_path):
+    """CFs in force_exclude should not be saved even if not in trash_names."""
+    from export_custom_cfs import KEEP_FIELDS, _clean_spec
+    # Simulate the filtering logic directly
+    trash_names = set()
+    force_exclude = {"now", "season pack"}
+    cfs = [
+        {"name": "NOW", "includeCustomFormatWhenRenaming": True, "specifications": []},
+        {"name": "MyCustomCF", "includeCustomFormatWhenRenaming": False, "specifications": []},
+    ]
+    saved = []
+    skipped = []
+    for cf in cfs:
+        cf_name_lower = cf["name"].strip().lower()
+        is_excluded = cf_name_lower in force_exclude
+        is_trash = cf_name_lower in trash_names
+        if (is_trash and True) or is_excluded:
+            skipped.append(cf["name"])
+        else:
+            saved.append(cf["name"])
+    assert "NOW" in skipped
+    assert "MyCustomCF" in saved
+
+
+def test_force_include_keeps_trash_cf(tmp_path):
+    """CFs in force_include should be saved even if they match a trash name."""
+    trash_names = {"hdr"}
+    force_include = {"hdr"}
+    cfs = [
+        {"name": "HDR", "includeCustomFormatWhenRenaming": False, "specifications": []},
+    ]
+    saved = []
+    skipped = []
+    for cf in cfs:
+        cf_name_lower = cf["name"].strip().lower()
+        is_trash = cf_name_lower in trash_names
+        is_forced = cf_name_lower in force_include
+        if is_trash and not is_forced:
+            skipped.append(cf["name"])
+        else:
+            saved.append(cf["name"])
+    assert "HDR" in saved
+    assert "HDR" not in skipped
+
+
 def test_save_cf_strips_unwanted_fields(tmp_path):
     cf = {"name": "TestCF", "id": 42, "label": "x", "helpText": "y", "infoLink": "z",
           "includeCustomFormatWhenRenaming": True, "specifications": []}

@@ -4,7 +4,7 @@ Utility scripts for Sonarr/Radarr arr management.
 
 ---
 
-## export-custom-cfs.py
+## export_custom_cfs.py
 
 Exports your **custom-only** CFs from Sonarr/Radarr, ready to use with [configarr](https://github.com/raydak-labs/configarr).
 
@@ -13,7 +13,7 @@ Reads your `recyclarr.yml` to identify which CFs are managed by Trash Guides, th
 ### Requirements
 
 ```bash
-pip install requests pyyaml
+pip install -r requirements.txt
 ```
 
 ### Setup
@@ -23,12 +23,16 @@ pip install requests pyyaml
 
 ```json
 {
+  "dry_run": false,
   "instances": [
     {
       "name": "Sonarr",
       "base_url": "http://YOUR_SONARR_IP:8989",
       "api_key": "YOUR_SONARR_API_KEY",
-      ...
+      "arr_type": "sonarr",
+      "output_dir": "custom-cfs/sonarr",
+      "force_include": [],
+      "force_exclude": []
     }
   ]
 }
@@ -55,8 +59,25 @@ custom-cfs/
 
 Copy the `custom-cfs/` folder into your configarr setup and point `localCustomFormatsPath` at it.
 
+### Config options
+
+| Option | Description |
+|--------|-------------|
+| `dry_run` | Set to `true` to run without writing any files — useful for checking what would be saved/skipped |
+| `force_include` | CF names to always save, even if they match a Trash Guide name |
+| `force_exclude` | CF names to always skip, even if not in recyclarr.yml — useful for Trash CFs missing inline comments |
+
 ### What gets skipped
 
 Any CF whose name matches one in your `recyclarr.yml` Trash Guide list is skipped — configarr pulls those automatically from Trash Guides, no local file needed.
 
-A full list of skipped CFs is printed at the end so you can verify nothing was incorrectly excluded.
+If a Trash CF slips through (because its recyclarr.yml comment doesn't match the CF name exactly), add it to `force_exclude` in config.json.
+
+A full list of skipped and saved CFs is printed at the end so you can verify the results.
+
+### Examples
+
+See the `examples/` folder for reference JSON files:
+- `custom-cf-example.json` — what a correctly exported custom CF looks like
+- `trash-guide-cf-example.json` — Trash Guide CF format for comparison
+- `force-exclude-example*.json` — examples of Trash CFs that may slip through without `force_exclude`

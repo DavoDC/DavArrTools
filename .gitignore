@@ -1,4 +1,5 @@
 config.json
+recyclarr.yml
 custom-cfs/
 logs/
 __pycache__/
