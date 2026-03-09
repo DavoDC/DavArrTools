@@ -91,8 +91,16 @@ def test_save_cf_sanitises_filename(tmp_path):
     assert '/' not in files[0].name
 
 def test_save_cf_content(tmp_path):
+    cf = {"name": "TestCF", "id": 42, "specifications": [{"name": "spec1"}]}
+    save_cf(cf, str(tmp_path))
+    with open(tmp_path / "TestCF.json") as f:
+        data = json.load(f)
+    assert data["name"] == "TestCF"
+    assert data["specifications"] == [{"name": "spec1"}]
+
+def test_save_cf_strips_id(tmp_path):
     cf = {"name": "TestCF", "id": 42}
     save_cf(cf, str(tmp_path))
     with open(tmp_path / "TestCF.json") as f:
         data = json.load(f)
-    assert data["id"] == 42
+    assert "id" not in data

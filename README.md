@@ -39,7 +39,7 @@ Your API key is at `Settings → General → API Key` in Sonarr/Radarr. `config.
 ### Run
 
 ```bash
-python export-custom-cfs.py
+python export_custom_cfs.py
 ```
 
 ### Output

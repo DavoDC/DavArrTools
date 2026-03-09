@@ -1,11 +1,11 @@
 """
-export-custom-cfs.py
+export_custom_cfs.py
 
 Exports custom CFs from Sonarr/Radarr, filtering out any that are already
 managed by Trash Guides (via recyclarr.yml). Saves custom-only CFs as
 individual JSON files ready for configarr's localCustomFormatsPath.
 
-Usage: python export-custom-cfs.py
+Usage: python export_custom_cfs.py
 """
 
 import json
@@ -13,8 +13,8 @@ import logging
 import os
 import re
 import requests
+import shutil
 import yaml
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
 # ── Config ────────────────────────────────────────────────────────────────────
@@ -23,7 +23,8 @@ CONFIG_PATH = "config.json"
 RECYCLARR_YML = "recyclarr.yml"
 LOG_DIR = "logs"
 
-TRASH_GUIDES_BASE = "https://raw.githubusercontent.com/TRaSH-Guides/Guides/master/docs/json"
+# Fields returned by the arr API that configarr doesn't need
+STRIP_FIELDS = {"id"}
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -52,16 +53,13 @@ def extract_trash_names(yml_path: str) -> dict[str, set[str]]:
     with open(yml_path, "r") as f:
         raw = f.read()
 
-    # Find each arr section and extract commented names
     for arr_type in ("sonarr", "radarr"):
-        # Find the section block
         pattern = rf"^{arr_type}:\s*$(.*?)(?=^\w|\Z)"
         match = re.search(pattern, raw, re.MULTILINE | re.DOTALL)
         if not match:
             continue
         block = match.group(1)
 
-        # Extract all trash_id lines with comments: '- <hash> # <name>'
         for line in block.splitlines():
             m = re.match(r'\s*-\s+[a-f0-9]{32}\s+#\s+(.+)', line)
             if m:
@@ -84,12 +82,13 @@ def fetch_arr_cfs(base_url: str, api_key: str, arr_name: str) -> list[dict]:
 
 
 def save_cf(cf: dict, output_dir: str):
-    """Save a single CF as a JSON file."""
+    """Save a CF as a JSON file, stripping arr-internal fields."""
     os.makedirs(output_dir, exist_ok=True)
+    clean = {k: v for k, v in cf.items() if k not in STRIP_FIELDS}
     safe_name = re.sub(r'[<>:"/\\|?*]', '_', cf["name"])
     path = os.path.join(output_dir, f"{safe_name}.json")
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(cf, f, indent=2, ensure_ascii=False)
+        json.dump(clean, f, indent=2, ensure_ascii=False)
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -108,6 +107,10 @@ def main():
     with open(CONFIG_PATH, "r") as f:
         config = json.load(f)
     instances = config["instances"]
+    dry_run = config.get("dry_run", False)
+
+    if dry_run:
+        logging.info("*** DRY RUN MODE — no files will be written ***")
 
     # Stage 1: Parse recyclarr.yml
     t1 = datetime.now()
@@ -121,13 +124,12 @@ def main():
         logging.info(f"  {arr_type}: {len(names)} Trash Guide CF names found")
     logging.info(f"  Stage 1 done in {(datetime.now() - t1).seconds}s")
 
-    # Stage 2: Export and filter CFs from each instance
+    # Stage 2: Export CFs from each instance
     t2 = datetime.now()
     logging.info("\nStage 2/3: Exporting CFs from arr instances...")
     all_results = {}
     for instance in instances:
         name = instance["name"]
-        arr_type = instance["arr_type"]
         logging.info(f"  [{name}]")
         try:
             all_results[name] = (instance, fetch_arr_cfs(instance["base_url"], instance["api_key"], name))
@@ -142,19 +144,37 @@ def main():
         arr_type = instance["arr_type"]
         output_dir = instance["output_dir"]
         trash_names = trash_names_by_type.get(arr_type, set())
+        force_include = {n.lower() for n in instance.get("force_include", [])}
+
+        # Clear output dir so re-runs are clean
+        if not dry_run and os.path.exists(output_dir):
+            shutil.rmtree(output_dir)
+            logging.info(f"  Cleared existing output dir: {output_dir}/")
 
         saved = []
         skipped = []
+        force_saved = []
 
         for cf in all_cfs:
             cf_name_lower = cf.get("name", "").strip().lower()
-            if cf_name_lower in trash_names:
+            is_trash = cf_name_lower in trash_names
+            is_forced = cf_name_lower in force_include
+
+            if is_trash and not is_forced:
                 skipped.append(cf["name"])
             else:
-                save_cf(cf, output_dir)
-                saved.append(cf["name"])
+                if not dry_run:
+                    save_cf(cf, output_dir)
+                if is_forced and is_trash:
+                    force_saved.append(cf["name"])
+                else:
+                    saved.append(cf["name"])
 
         logging.info(f"\n  [{name}] Saved {len(saved)} custom CFs → {output_dir}/")
+        if force_saved:
+            logging.info(f"  [{name}] Force-included {len(force_saved)} (matched Trash Guide name but kept):")
+            for n in sorted(force_saved):
+                logging.warning(f"    ! {n}  ← same name as Trash Guide CF — verify this is intentional")
         logging.info(f"  [{name}] Skipped {len(skipped)} Trash Guide CFs")
 
         if skipped:
@@ -170,7 +190,10 @@ def main():
     logging.info(f"  Stage 3 done in {(datetime.now() - t3).seconds}s")
 
     elapsed = (datetime.now() - start).seconds
-    logging.info(f"\n=== Done in {elapsed}s. Copy custom-cfs/ into your configarr setup. Log: {log_file} ===")
+    if dry_run:
+        logging.info(f"\n=== Dry run complete in {elapsed}s. No files written. Log: {log_file} ===")
+    else:
+        logging.info(f"\n=== Done in {elapsed}s. Copy custom-cfs/ into your configarr setup. Log: {log_file} ===")
     input("\nPress Enter to exit...")
 
 
