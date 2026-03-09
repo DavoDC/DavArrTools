@@ -1,0 +1,18 @@
+{
+  "instances": [
+    {
+      "name": "Sonarr",
+      "base_url": "http://YOUR_SONARR_IP:8989",
+      "api_key": "YOUR_SONARR_API_KEY",
+      "arr_type": "sonarr",
+      "output_dir": "custom-cfs/sonarr"
+    },
+    {
+      "name": "Radarr",
+      "base_url": "http://YOUR_RADARR_IP:7878",
+      "api_key": "YOUR_RADARR_API_KEY",
+      "arr_type": "radarr",
+      "output_dir": "custom-cfs/radarr"
+    }
+  ]
+}

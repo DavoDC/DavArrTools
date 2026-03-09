@@ -19,21 +19,22 @@ pip install requests pyyaml
 ### Setup
 
 1. Copy `recyclarr.yml` into the same folder as the script
-2. Open `export-custom-cfs.py` and fill in your arr details at the top:
+2. Copy `config.example.json` to `config.json` and fill in your arr details:
 
-```python
-INSTANCES = [
+```json
+{
+  "instances": [
     {
-        "name": "Sonarr",
-        "base_url": "http://YOUR_SONARR_IP:8989",
-        "api_key": "YOUR_SONARR_API_KEY",
-        ...
-    },
-    ...
-]
+      "name": "Sonarr",
+      "base_url": "http://YOUR_SONARR_IP:8989",
+      "api_key": "YOUR_SONARR_API_KEY",
+      ...
+    }
+  ]
+}
 ```
 
-Your API key is at `Settings → General → API Key` in Sonarr/Radarr.
+Your API key is at `Settings → General → API Key` in Sonarr/Radarr. `config.json` is gitignored — credentials stay local.
 
 ### Run
 

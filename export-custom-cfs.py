@@ -16,25 +16,8 @@ import yaml
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-RECYCLARR_YML = "recyclarr.yml"   # path to your recyclarr config
-
-# Add your arr instances here
-INSTANCES = [
-    {
-        "name": "Sonarr",
-        "base_url": "http://YOUR_SONARR_IP:8989",
-        "api_key": "YOUR_SONARR_API_KEY",
-        "arr_type": "sonarr",
-        "output_dir": "custom-cfs/sonarr",
-    },
-    {
-        "name": "Radarr",
-        "base_url": "http://YOUR_RADARR_IP:7878",
-        "api_key": "YOUR_RADARR_API_KEY",
-        "arr_type": "radarr",
-        "output_dir": "custom-cfs/radarr",
-    },
-]
+CONFIG_PATH = "config.json"
+RECYCLARR_YML = "recyclarr.yml"
 
 TRASH_GUIDES_BASE = "https://raw.githubusercontent.com/TRaSH-Guides/Guides/master/docs/json"
 
@@ -112,6 +95,16 @@ def save_cf(cf: dict, output_dir: str):
 def main():
     print("\n=== export-custom-cfs ===\n")
 
+    # Load config
+    if not os.path.exists(CONFIG_PATH):
+        print(f"ERROR: {CONFIG_PATH} not found.")
+        print(f"Copy config.example.json to config.json and fill in your details.")
+        input("\nPress Enter to exit...")
+        return
+    with open(CONFIG_PATH, "r") as f:
+        config = json.load(f)
+    instances = config["instances"]
+
     # Stage 1: Parse recyclarr.yml
     print("Stage 1/3: Reading recyclarr.yml...")
     if not os.path.exists(RECYCLARR_YML):
@@ -131,7 +124,7 @@ def main():
 
     # Stage 3: Export and filter CFs
     print("\nStage 3/3: Exporting CFs from arr instances...")
-    for instance in INSTANCES:
+    for instance in instances:
         name = instance["name"]
         arr_type = instance["arr_type"]
         output_dir = instance["output_dir"]
