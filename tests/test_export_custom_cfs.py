@@ -5,7 +5,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from export_custom_cfs import extract_trash_names, save_cf
+from export_custom_cfs import extract_trash_names, save_cf, _clean_spec
 import tempfile
 import json
 
@@ -109,6 +109,17 @@ def test_save_cf_content(tmp_path):
     assert "implementationName" not in spec
     assert "id" not in spec
     assert spec["fields"] == {"value": "\\bfoo\\b"}
+
+def test_clean_spec_flattens_fields_list(tmp_path):
+    spec = {
+        "name": "s", "implementation": "ReleaseTitleSpecification", "implementationName": "X",
+        "id": 5, "negate": False, "required": False,
+        "fields": [{"name": "value", "order": 0, "label": "RegEx", "value": "\\bfoo\\b"}]
+    }
+    result = _clean_spec(spec)
+    assert set(result.keys()) == {"name", "implementation", "negate", "required", "fields"}
+    assert result["fields"] == {"value": "\\bfoo\\b"}
+
 
 def test_save_cf_strips_unwanted_fields(tmp_path):
     cf = {"name": "TestCF", "id": 42, "label": "x", "helpText": "y", "infoLink": "z",

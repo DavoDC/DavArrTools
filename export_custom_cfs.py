@@ -161,6 +161,7 @@ def main():
         output_dir = instance["output_dir"]
         trash_names = trash_names_by_type.get(arr_type, set())
         force_include = {n.lower() for n in instance.get("force_include", [])}
+        force_exclude = {n.lower() for n in instance.get("force_exclude", [])}
 
         # Clear output dir so re-runs are clean
         if not dry_run and os.path.exists(output_dir):
@@ -170,14 +171,18 @@ def main():
         saved = []
         skipped = []
         force_saved = []
+        force_excluded = []
 
         for cf in all_cfs:
             cf_name_lower = cf.get("name", "").strip().lower()
             is_trash = cf_name_lower in trash_names
             is_forced = cf_name_lower in force_include
+            is_excluded = cf_name_lower in force_exclude
 
-            if is_trash and not is_forced:
+            if (is_trash and not is_forced) or is_excluded:
                 skipped.append(cf["name"])
+                if is_excluded and not is_trash:
+                    force_excluded.append(cf["name"])
             else:
                 if not dry_run:
                     save_cf(cf, output_dir)
@@ -191,6 +196,10 @@ def main():
             logging.info(f"  [{name}] Force-included {len(force_saved)} (matched Trash Guide name but kept):")
             for n in sorted(force_saved):
                 logging.warning(f"    ! {n}  ← same name as Trash Guide CF — verify this is intentional")
+        if force_excluded:
+            logging.info(f"  [{name}] Force-excluded {len(force_excluded)} (manually listed in force_exclude):")
+            for n in sorted(force_excluded):
+                logging.info(f"    x {n}")
         logging.info(f"  [{name}] Skipped {len(skipped)} Trash Guide CFs")
 
         if skipped:
