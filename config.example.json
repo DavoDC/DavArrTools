@@ -8,7 +8,8 @@
       "arr_type": "sonarr",
       "output_dir": "custom-cfs/sonarr",
       "force_include": [],
-      "force_exclude": []
+      "force_exclude": [],
+      "profiles_output_dir": "custom-profiles/sonarr"
     },
     {
       "name": "Radarr",
@@ -17,7 +18,8 @@
       "arr_type": "radarr",
       "output_dir": "custom-cfs/radarr",
       "force_include": ["My Custom HDR"],
-      "force_exclude": ["DV (w/o HDR fallback)", "NOW", "Season Pack"]
+      "force_exclude": ["DV (w/o HDR fallback)", "NOW", "Season Pack"],
+      "profiles_output_dir": "custom-profiles/radarr"
     }
   ]
 }

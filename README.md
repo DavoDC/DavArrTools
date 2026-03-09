@@ -75,6 +75,38 @@ If a Trash CF slips through (because its recyclarr.yml comment doesn't match the
 
 A full list of skipped and saved CFs is printed at the end so you can verify the results.
 
+---
+
+## export_custom_profiles.py
+
+Exports quality profiles from Sonarr/Radarr in configarr-compatible format.
+
+Uses the same `config.json` as the CF exporter. Profiles are saved to `profiles_output_dir` (defaults to `custom-profiles/<arr_type>/` if not set).
+
+### Run
+
+```bash
+python export_custom_profiles.py
+```
+
+### Output
+
+```
+custom-profiles/
+├── sonarr/
+│   └── My Profile.json
+└── radarr/
+    └── Another Profile.json
+```
+
+The script handles all format differences between the arr API and configarr:
+- `cutoff` int ID → quality name string
+- `language` object → name string
+- Nested quality items → simplified `{name, allowed, items}` structure
+- `formatItems` list → `{name: score}` dict
+
+---
+
 ### Examples
 
 See the `examples/` folder for reference JSON files:

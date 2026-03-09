@@ -12,34 +12,20 @@ import json
 import logging
 import os
 import re
-import requests
 import shutil
 from datetime import datetime
+from utils import setup_logging, fetch_arr_data
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
 CONFIG_PATH = "config.json"
 RECYCLARR_YML = "recyclarr.yml"
-LOG_DIR = "logs"
 
 # Only these fields are needed by configarr — everything else from the arr API is dropped
 KEEP_FIELDS = {"name", "includeCustomFormatWhenRenaming", "specifications"}
 KEEP_SPEC_FIELDS = {"name", "implementation", "negate", "required", "fields"}
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-
-def setup_logging() -> str:
-    os.makedirs(LOG_DIR, exist_ok=True)
-    log_file = os.path.join(LOG_DIR, f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(message)s",
-        handlers=[
-            logging.FileHandler(log_file),
-            logging.StreamHandler(),
-        ]
-    )
-    return log_file
 
 
 def extract_trash_names(yml_path: str) -> dict[str, set[str]]:
@@ -72,11 +58,7 @@ def extract_trash_names(yml_path: str) -> dict[str, set[str]]:
 
 def fetch_arr_cfs(base_url: str, api_key: str, arr_name: str) -> list[dict]:
     """Export all CFs from an arr instance via API."""
-    url = f"{base_url.rstrip('/')}/api/v3/customformat"
-    headers = {"X-Api-Key": api_key}
-    r = requests.get(url, headers=headers, timeout=10)
-    r.raise_for_status()
-    cfs = r.json()
+    cfs = fetch_arr_data(base_url, api_key, "customformat")
     logging.info(f"  Exported {len(cfs)} CFs from {arr_name}")
     return cfs
 
@@ -109,7 +91,7 @@ def save_cf(cf: dict, output_dir: str):
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
-    log_file = setup_logging()
+    log_file = setup_logging("export_cfs")
     start = datetime.now()
     logging.info("=== export-custom-cfs started ===")
     logging.info(f"Log: {log_file}")
