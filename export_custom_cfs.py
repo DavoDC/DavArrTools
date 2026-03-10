@@ -25,6 +25,9 @@ RECYCLARR_YML = "recyclarr.yml"
 KEEP_FIELDS = {"name", "includeCustomFormatWhenRenaming", "specifications"}
 KEEP_SPEC_FIELDS = {"name", "implementation", "negate", "required", "fields"}
 
+RE_TRASH_LINE = re.compile(r'\s*-\s+[a-f0-9]{32}\s+#\s+(.+)')
+RE_UNSAFE_FILENAME = re.compile(r'[<>:"/\\|?*]')
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
@@ -47,7 +50,7 @@ def extract_trash_names(yml_path: str) -> dict[str, set[str]]:
         block = match.group(1)
 
         for line in block.splitlines():
-            m = re.match(r'\s*-\s+[a-f0-9]{32}\s+#\s+(.+)', line)
+            m = RE_TRASH_LINE.match(line)
             if m:
                 name = m.group(1).strip().lower()
                 if name:
@@ -82,7 +85,7 @@ def save_cf(cf: dict, output_dir: str):
     clean = {k: v for k, v in cf.items() if k in KEEP_FIELDS}
     if "specifications" in clean:
         clean["specifications"] = [_clean_spec(s) for s in clean["specifications"]]
-    safe_name = re.sub(r'[<>:"/\\|?*]', '_', cf["name"])
+    safe_name = RE_UNSAFE_FILENAME.sub('_', cf["name"])
     path = os.path.join(output_dir, f"{safe_name}.json")
     with open(path, "w", encoding="utf-8") as f:
         json.dump(clean, f, indent=2, ensure_ascii=False)

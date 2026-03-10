@@ -25,6 +25,8 @@ from utils import ensure_requirements, setup_logging, fetch_arr_data
 
 CONFIG_PATH = "config.json"
 
+RE_UNSAFE_FILENAME = re.compile(r'[<>:"/\\|?*]')
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _find_quality_name(items: list, quality_id: int) -> str | None:
@@ -78,7 +80,7 @@ def transform_profile(profile: dict) -> dict:
 def save_profile(profile: dict, output_dir: str):
     """Save a transformed profile as a JSON file."""
     os.makedirs(output_dir, exist_ok=True)
-    safe_name = re.sub(r'[<>:"/\\|?*]', '_', profile["name"])
+    safe_name = RE_UNSAFE_FILENAME.sub('_', profile["name"])
     path = os.path.join(output_dir, f"{safe_name}.json")
     with open(path, "w", encoding="utf-8") as f:
         json.dump(profile, f, indent=2, ensure_ascii=False)
