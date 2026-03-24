@@ -8,7 +8,7 @@ Utility scripts for Sonarr/Radarr arr management.
 
 Exports your **custom-only** CFs from Sonarr/Radarr, ready to use with [configarr](https://github.com/raydak-labs/configarr).
 
-Reads your `recyclarr.yml` to identify which CFs are managed by Trash Guides, then skips those — only saving CFs you made yourself.
+Reads your `recyclarr.yml` to identify which CFs are managed by Trash Guides, then skips those - only saving CFs you made yourself.
 
 ### Requirements
 
@@ -40,7 +40,7 @@ pip install -r requirements.txt
 }
 ```
 
-Your API key is at `Settings → General → API Key` in Sonarr/Radarr. `config.json` is gitignored — credentials stay local.
+Your API key is at `Settings → General → API Key` in Sonarr/Radarr. `config.json` is gitignored - credentials stay local.
 
 ### Run
 
@@ -65,13 +65,13 @@ Copy the `custom-cfs/` folder into your configarr setup and point `localCustomFo
 
 | Option | Description |
 |--------|-------------|
-| `dry_run` | Set to `true` to run without writing any files — useful for checking what would be saved/skipped |
+| `dry_run` | Set to `true` to run without writing any files - useful for checking what would be saved/skipped |
 | `force_include` | CF names to always save, even if they match a Trash Guide name |
-| `force_exclude` | CF names to always skip, even if not in recyclarr.yml — useful for Trash CFs missing inline comments |
+| `force_exclude` | CF names to always skip, even if not in recyclarr.yml - useful for Trash CFs missing inline comments |
 
 ### What gets skipped
 
-Any CF whose name matches one in your `recyclarr.yml` Trash Guide list is skipped — configarr pulls those automatically from Trash Guides, no local file needed.
+Any CF whose name matches one in your `recyclarr.yml` Trash Guide list is skipped - configarr pulls those automatically from Trash Guides, no local file needed.
 
 If a Trash CF slips through (because its recyclarr.yml comment doesn't match the CF name exactly), add it to `force_exclude` in config.json.
 
@@ -112,6 +112,12 @@ The script handles all format differences between the arr API and configarr:
 ### Examples
 
 See the `examples/` folder for reference JSON files:
-- `custom-cf-example.json` — what a correctly exported custom CF looks like
-- `trash-guide-cf-example.json` — Trash Guide CF format for comparison
-- `force-exclude-example*.json` — examples of Trash CFs that may slip through without `force_exclude`
+- `custom-cf-example.json` - what a correctly exported custom CF looks like
+- `trash-guide-cf-example.json` - Trash Guide CF format for comparison
+- `force-exclude-example*.json` - examples of Trash CFs that may slip through without `force_exclude`
+
+---
+
+## Development
+
+**Started:** March 2026 · **Status:** Actively maintained
