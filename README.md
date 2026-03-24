@@ -124,4 +124,4 @@ See the `examples/` folder for reference JSON files:
 
 ## Development
 
-**Started:** March 2026 · **Status:** Actively maintained
+**Developed:** March 2026 · **Status:** Actively maintained
